@@ -241,16 +241,23 @@ def find_logo():
     return config.tools_root / 'latex/images/logo-not-found.pdf'
 
 
+TYPE_PROBLEM = 'problem'
+TYPE_PROBLEM_SLIDE = 'problem-slide'
+TYPE_SOLUTION = 'solution'
+
+
 # Build a pdf for an entire problemset in the given language. Explanation in latex/readme.md
-def build_contest_pdf(contest, problems, tmpdir, language, solutions=False, web=False):
+def build_contest_pdf(contest, problems, tmpdir, language, build_type=TYPE_PROBLEM, web=False):
     log(
-        f"Building contest {'statements' if not solutions else 'solutions'} PDF for language {language} "
+        f"Building contest {build_type}s PDF for language {language} "
     )
     builddir = tmpdir / contest
     builddir.mkdir(parents=True, exist_ok=True)
-    build_type = 'solution' if solutions else 'problem'
 
-    main_file = 'solutions' if solutions else 'contest'
+    problem_slides = build_type == TYPE_PROBLEM_SLIDE
+    solutions = build_type == TYPE_SOLUTION
+
+    main_file = 'problem-slides' if problem_slides else 'solutions' if solutions else 'contest'
     main_file += '-web.tex' if web else '.tex'
 
     default_config_data = {
@@ -295,6 +302,8 @@ def build_contest_pdf(contest, problems, tmpdir, language, solutions=False, web=
         else config.tools_root / 'latex' / f'contest-{build_type}.tex'
     ).read_text()
 
+    probyaml = problems_yaml()
+
     for problem in problems:
         if build_type == 'problem':
             prepare_problem(problem)
@@ -312,12 +321,28 @@ def build_contest_pdf(contest, problems, tmpdir, language, solutions=False, web=
                 warn(f'{problem.name}: solution.{language}.tex not found')
                 continue
 
+        background = next(
+            (p['rgb'] for p in probyaml if p['id'] == str(problem.path) and 'rgb' in p), '#ffffff'
+        )[1:]
+        # Source: https://github.com/DOMjudge/domjudge/blob/095854650facda41dbb40966e70199840b887e33/webapp/src/Twig/TwigExtension.php#L1056
+        foreground = (
+            '000000'
+            if sum(int(background[i : i + 2], 16) for i in range(0, 6, 2)) > 450
+            else 'ffffff'
+        )
+        border = "".join(
+            ("00" + hex(max(0, int(background[i : i + 2], 16) - 64))[2:])[-2:]
+            for i in range(0, 6, 2)
+        )
         problems_data += util.substitute(
             per_problem_data,
             {
                 'problemlabel': problem.label,
                 'problemyamlname': problem.settings.name[language].replace('_', ' '),
                 'problemauthor': problem.settings.author,
+                'problembackground': background,
+                'problemforeground': foreground,
+                'problemborder': border,
                 'timelimit': get_tl(problem),
                 'problemdir': problem.path.absolute().as_posix(),
                 'problemdirname': problem.name,
@@ -339,9 +364,9 @@ def build_contest_pdf(contest, problems, tmpdir, language, solutions=False, web=
     return build_latex_pdf(builddir, Path(main_file), language)
 
 
-def build_contest_pdfs(contest, problems, tmpdir, lang=None, solutions=False, web=False):
+def build_contest_pdfs(contest, problems, tmpdir, lang=None, build_type=TYPE_PROBLEM, web=False):
     if lang:
-        return build_contest_pdf(contest, problems, tmpdir, lang, solutions, web)
+        return build_contest_pdf(contest, problems, tmpdir, lang, build_type, web)
 
     """Build contest PDFs for all available languages"""
     statement_languages = set.intersection(*(set(p.statement_languages) for p in problems))
@@ -354,5 +379,5 @@ def build_contest_pdfs(contest, problems, tmpdir, lang=None, solutions=False, we
     else:
         languages = statement_languages
     return all(
-        build_contest_pdf(contest, problems, tmpdir, lang, solutions, web) for lang in languages
+        build_contest_pdf(contest, problems, tmpdir, lang, build_type, web) for lang in languages
     )

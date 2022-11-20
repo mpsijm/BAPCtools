@@ -404,6 +404,26 @@ Run this from one of:
     pdfparser.add_argument('--web', action='store_true', help='Create a web version of the pdf.')
     pdfparser.add_argument('-1', action='store_true', help='Only run the LaTeX compiler once.')
 
+    # Problem slides
+    pdfparser = subparsers.add_parser(
+        'problem_slides', parents=[global_parser], help='Build the problem slides pdf.'
+    )
+    # pdfparser.add_argument(
+    #     '--all',
+    #     '-a',
+    #     action='store_true',
+    #     help='Create problem statements for individual problems as well.',
+    # )
+    pdfparser.add_argument('--no-timelimit', action='store_true', help='Do not print timelimits.')
+    pdfparser.add_argument(
+        '--watch',
+        '-w',
+        action='store_true',
+        help='Continuously compile the pdf whenever a `problem_statement.tex` changes. Note that this does not pick up changes to `*.yaml` configuration files.',
+    )
+    # pdfparser.add_argument('--web', action='store_true', help='Create a web version of the pdf.')
+    pdfparser.add_argument('-1', action='store_true', help='Only run the LaTeX compiler once.')
+
     # Solution slides
     solparser = subparsers.add_parser(
         'solutions', parents=[global_parser], help='Build the solution slides pdf.'
@@ -983,7 +1003,12 @@ def run_parsed_arguments(args):
 
         if action in ['solutions']:
             success &= latex.build_contest_pdfs(
-                contest, problems, tmpdir, solutions=True, web=config.args.web
+                contest, problems, tmpdir, build_type=latex.TYPE_SOLUTION, web=config.args.web
+            )
+
+        if action in ['problem_slides']:
+            success &= latex.build_contest_pdfs(
+                contest, problems, tmpdir, build_type=latex.TYPE_PROBLEM_SLIDE, web=config.args.web
             )
 
         if action in ['zip']:
