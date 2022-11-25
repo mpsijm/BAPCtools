@@ -214,6 +214,7 @@ def build_contest_zip(problems, zipfiles, outfile, statement_language):
             [
                 'problems.yaml',
                 'contest.yaml',
+                'problem-slides.pdf',
                 'samples.zip',
             ]
             + glob(Path('.'), f'contest*.{statement_language}.pdf')

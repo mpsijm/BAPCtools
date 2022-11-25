@@ -1022,11 +1022,14 @@ def run_parsed_arguments(args):
                     contest, problems, tmpdir, statement_language, web=True
                 )
                 if not config.args.no_solutions:
-                    success &= latex.build_contest_pdfs(
-                        contest, problems, tmpdir, statement_language, solutions=True
+                    success &= latex.build_contest_pdf(
+                        contest, problems, tmpdir, statement_language, build_type=latex.TYPE_PROBLEM_SLIDE
                     )
-                    success &= latex.build_contest_pdfs(
-                        contest, problems, tmpdir, statement_language, solutions=True, web=True
+                    success &= latex.build_contest_pdf(
+                        contest, problems, tmpdir, statement_language, build_type=latex.TYPE_SOLUTION
+                    )
+                    success &= latex.build_contest_pdf(
+                        contest, problems, tmpdir, statement_language, build_type=latex.TYPE_SOLUTION, web=True
                     )
 
             outfile = contest + '.zip'
