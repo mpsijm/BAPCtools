@@ -34,7 +34,7 @@ class Run:
                 shutil.rmtree(f)
 
     # Return an ExecResult object amended with verdict.
-    def run(self, *, interaction=None, submission_args=None):
+    def run(self, *, interaction=None, submission_args=None) -> ExecResult:
         if self.problem.interactive:
             result = interactive.run_interactive_testcase(
                 self, interaction=interaction, submission_args=submission_args
@@ -54,13 +54,15 @@ class Run:
             else:
                 # Overwrite the result with validator returncode and stdout/stderr, but keep the original duration.
                 duration = result.duration
+                wall_time = result.wall_time
                 result = self._validate_output()
                 if result is None:
                     error(f'No output validators found for testcase {self.testcase.name}')
-                    result = ExecResult(None, ExecStatus.REJECTED, 0, False, None, None)
+                    result = ExecResult(None, ExecStatus.REJECTED, 0, 0, False, None, None)
                     result.verdict = 'VALIDATOR_CRASH'
                 else:
                     result.duration = duration
+                    result.wall_time = wall_time
 
                     if result.status:
                         result.verdict = 'ACCEPTED'
@@ -248,7 +250,7 @@ class Submission(program.Program):
         verdict = (-100, 'ACCEPTED', 'ACCEPTED', 0)  # priority, verdict, print_verdict, duration
         verdict_run = None
 
-        def process_run(run, p):
+        def process_run(run: Run, p):
             nonlocal max_duration, verdict, verdict_run
 
             localbar = bar.start(run)
@@ -267,6 +269,15 @@ class Submission(program.Program):
                 verdict = new_verdict
                 verdict_run = run
             max_duration = max(max_duration, result.duration)
+
+            warn_for_high_wall_time = (
+                result.duration < self.problem.settings.timelimit < result.wall_time
+            )
+            below_timelimit_but_above_timeout = (
+                result.duration < self.problem.settings.timelimit and result.timeout_expired
+            )
+            if below_timelimit_but_above_timeout:
+                max_duration = result.wall_time
 
             if table_dict is not None:
                 table_dict[run.name] = result.verdict == 'ACCEPTED'
@@ -308,6 +319,18 @@ class Submission(program.Program):
                 if len(data) > 0 and data[-1] != '\n':
                     data += '\n'
                 data += f'{f.name}:' + localbar._format_data(t) + '\n'
+
+            if warn_for_high_wall_time or below_timelimit_but_above_timeout:
+                msg = (
+                    f'Wall time: {result.wall_time:6.3f}s'
+                    if below_timelimit_but_above_timeout
+                    else f'Wall time ({result.wall_time:6.3f}s) exceeds time limit ({self.problem.settings.timelimit}s)'
+                )
+                if got_expected and not config.args.verbose:
+                    data = msg
+                else:
+                    data = '    '.join((data.strip(), msg))
+                got_expected = False
 
             localbar.done(got_expected, f'{result.duration:6.3f}s {result.print_verdict()}', data)
 

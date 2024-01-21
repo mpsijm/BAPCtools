@@ -133,6 +133,7 @@ def run_interactive_testcase(
             None,
             ExecStatus.ACCEPTED,
             tend - tstart,
+            tend - tstart,
             tend - tstart >= timeout,
             validator_err.decode('utf-8', 'replace'),
             exec_res.err,
@@ -238,8 +239,6 @@ while True:
     def kill_handler_function():
         if stop_kill_handler.wait(timeout + 1):
             return
-        nonlocal submission_time
-        submission_time = timeout + 1
         try:
             os.kill(submission_pid, signal.SIGKILL)
         except ProcessLookupError:
@@ -250,6 +249,8 @@ while True:
 
     kill_handler = threading.Thread(target=kill_handler_function, daemon=True)
     kill_handler.start()
+
+    tstart = time.monotonic()
 
     # Will be filled in the loop below.
     validator_status = None
@@ -291,9 +292,7 @@ while True:
             if interaction:
                 team_tee.stdin.close()
 
-            # Possibly already written by the alarm.
-            if submission_time is None:
-                submission_time = rusage.ru_utime + rusage.ru_stime
+            submission_time = rusage.ru_utime + rusage.ru_stime
 
             first_done = False
         elif interaction:
@@ -306,10 +305,12 @@ while True:
 
         left -= 1
 
+    wall_time = time.monotonic() - tstart
+
     stop_kill_handler.set()
 
     did_timeout = submission_time > timelimit
-    aborted = submission_time >= timeout
+    aborted = wall_time >= timeout
 
     # If submission timed out: TLE
     # If team exists first with TLE/RTE -> TLE/RTE
@@ -359,6 +360,7 @@ while True:
         None,
         ExecStatus.ACCEPTED,
         submission_time,
+        wall_time,
         aborted,
         val_err,
         team_err,

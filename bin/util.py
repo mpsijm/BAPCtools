@@ -775,6 +775,7 @@ class ExecResult:
         returncode,
         status,
         duration,
+        wall_time,
         timeout_expired,
         err,
         out,
@@ -785,6 +786,7 @@ class ExecResult:
         assert type(status) is ExecStatus
         self.status = status
         self.duration = duration
+        self.wall_time = wall_time
         self.timeout_expired = timeout_expired
         self.err = err
         self.out = out
@@ -800,7 +802,7 @@ class ExecResult:
 def limit_setter(command, timeout, memory_limit, group=None, cores=False):
     def setlimits():
         if timeout:
-            resource.setrlimit(resource.RLIMIT_CPU, (timeout + 1, timeout + 1))
+            resource.setrlimit(resource.RLIMIT_CPU, (timeout, timeout + 1))
 
         # Increase the max stack size from default to the max available.
         if not is_bsd():
@@ -946,7 +948,7 @@ def exec_command(command, exec_code_map=default_exec_code_map, crop=True, **kwar
             )
         else:
             process = ResourcePopen(command, **kwargs)
-        (stdout, stderr) = process.communicate(timeout=timeout)
+        (stdout, stderr) = process.communicate(timeout=None if timeout is None else timeout + 1)
     except subprocess.TimeoutExpired:
         # Timeout expired.
         did_timeout = True
@@ -956,13 +958,16 @@ def exec_command(command, exec_code_map=default_exec_code_map, crop=True, **kwar
         # File is likely not executable.
         stdout = None
         stderr = str(e)
-        return ExecResult(None, ExecStatus.ERROR, 0, False, stderr, stdout)
+        return ExecResult(None, ExecStatus.ERROR, 0, 0, False, stderr, stdout)
     except OSError as e:
         # File probably doesn't exist.
         stdout = None
         stderr = str(e)
-        return ExecResult(None, ExecStatus.ERROR, 0, False, stderr, stdout)
-    tend = time.monotonic()
+        return ExecResult(None, ExecStatus.ERROR, 0, 0, False, stderr, stdout)
+    wall_time = time.monotonic() - tstart
+
+    if timeout is not None and wall_time > timeout:
+        did_timeout = True
 
     if threading.current_thread() is threading.main_thread():
         signal.signal(signal.SIGINT, old_handler)
@@ -983,14 +988,10 @@ def exec_command(command, exec_code_map=default_exec_code_map, crop=True, **kwar
 
     if hasattr(process, 'rusage'):
         duration = process.rusage.ru_utime + process.rusage.ru_stime
-        # It may happen that the Rusage is low, even though a timeout was raised, i.e. when calling sleep().
-        # To prevent under-reporting the duration, we take the max with wall time in this case.
-        if did_timeout:
-            duration = max(tend - tstart, duration)
     else:
-        duration = tend - tstart
+        duration = wall_time
 
-    return ExecResult(process.returncode, ok, duration, did_timeout, err, out)
+    return ExecResult(process.returncode, ok, duration, wall_time, did_timeout, err, out)
 
 
 def inc_label(label):
