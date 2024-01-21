@@ -1,0 +1,14 @@
+solution: /submissions/accepted/hello.cpp
+#visualizer: /visualizers/asy.sh
+# By default, generated files are not ignored.
+#gitignore_generated: false
+
+data:
+  sample:
+    data:
+      - '':
+          in: '16'
+          ans: '16'
+  secret:
+    data:
+      - '': gen.py {seed}
