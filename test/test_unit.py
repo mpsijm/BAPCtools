@@ -30,9 +30,9 @@ def setup_skel_problem(request):
 @pytest.mark.usefixtures('setup_skel_problem')
 class TestUnit:
     def test_memory(self):
-        shutil.copy('submissions/accepted/hello.cpp', 'submissions/run_time_error/hello.cpp')
+        shutil.copy('submissions/accepted/hello.py', 'submissions/run_time_error/hello.py')
         os.system(
-            'sed -i "s/cin >> n/auto huge = new int[100000000]; cin >> huge[42]; n = huge[42]/" submissions/run_time_error/hello.cpp'
+            'sed -i "s/print/list(range(int(1e8)));print/" submissions/run_time_error/hello.py'
         )
         tools.test('run --no-generate -m 256'.split())
 

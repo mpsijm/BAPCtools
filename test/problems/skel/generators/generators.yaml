@@ -1,4 +1,4 @@
-solution: /submissions/accepted/hello.cpp
+solution: /submissions/accepted/hello.py
 #visualizer: /visualizers/asy.sh
 # By default, generated files are not ignored.
 #gitignore_generated: false

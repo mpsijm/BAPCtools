@@ -8,7 +8,7 @@ uuid: 8ee7605a-9391-8727-1ee4-61028b8de953
 license: cc by-sa
 rights_owner: author
 # 'default', 'custom', or 'custom interactive'
-validation: default
+validation: custom  # Do not use the default_output_validator.cpp, because it's wasteful to compile it for every test
 
 # One or more of:
 # case_sensitive
@@ -16,7 +16,7 @@ validation: default
 # float_absolute_tolerance eps
 # float_relative_tolerance eps
 # float_tolerance eps
-validator_flags: float_tolerance 1e-6
+#validator_flags:
 
 # To change the time limit factors for problemtools/Kattis, use:
 limits:
