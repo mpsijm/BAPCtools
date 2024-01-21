@@ -1010,6 +1010,11 @@ def run_parsed_arguments(args):
                 re.split("[^#0-9A-Za-z]", config.args.colors) if config.args.colors else None,
             )
 
+    check_success(success)
+
+
+# Separate function to check success, which can be mocked in tests to expect a certain number of errors.
+def check_success(success):
     if not success or config.n_error > 0 or config.n_warn > 0:
         sys.exit(1)
 

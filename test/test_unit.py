@@ -10,7 +10,7 @@ import tools
 RUN_DIR = Path.cwd().resolve()
 
 
-@pytest.fixture(scope='class')
+@pytest.fixture(scope='function')  # Fixture is setup and torn down for every test.
 def setup_skel_problem(request):
     skel_dir = RUN_DIR / 'test/problems/skel'
     tmp_dir = TemporaryDirectory(prefix="bapctools_test_")
@@ -34,4 +34,43 @@ class TestUnit:
         os.system(
             'sed -i "s/cin >> n/auto huge = new int[100000000]; cin >> huge[42]; n = huge[42]/" submissions/run_time_error/hello.cpp'
         )
-        tools.test('run -m 256'.split())
+        tools.test('run --no-generate -m 256'.split())
+
+    @pytest.mark.parametrize(
+        'params', [
+            # (returncode, wall_time, expected)
+            (0, 1.8, 'Wall time ( 1.800s) exceeds time limit (1.0s)'),
+            (-9, 2.01, 'Wall time:  2.010s'),
+        ]
+    )
+    def test_timeout(self, capsys, monkeypatch, params):
+        import config
+        import run
+
+        returncode, wall_time, expected = params
+
+        # We have to actually give the correct answer, so when mocking ExecResult, always return "16" for simplicity
+        os.remove('data/secret/2.in')
+        os.remove('data/secret/2.ans')
+
+        def mock_exec(command, **kwargs):
+            kwargs["stdout"].write(b'16')
+            return run.ExecResult(
+                returncode,
+                run.ExecStatus.ACCEPTED if wall_time < 2 else run.ExecStatus.TIMEOUT,
+                0.5,
+                wall_time,
+                wall_time >= 2,
+                "",
+                "16"
+            )
+
+        def mock_check(_):
+            assert config.n_error == 1
+
+        monkeypatch.setattr(run, "exec_command", mock_exec)
+        monkeypatch.setattr(tools, "check_success", mock_check)
+
+        tools.test('run --no-generate'.split())
+        stdout, stderr = capsys.readouterr()
+        assert expected in stderr
