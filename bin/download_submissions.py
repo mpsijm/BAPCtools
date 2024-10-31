@@ -2,10 +2,11 @@
 import base64
 import json
 from os import makedirs
+from pathlib import Path
 
 import config
 import parallel
-from contest import call_api_get_json, get_contest_id
+from contest import call_api, call_api_get_json, get_api, get_contest_id
 from util import ProgressBar, fatal
 from verdicts import Verdict, from_string
 
@@ -19,7 +20,15 @@ def download_submissions():
     if contest_id is None:
         fatal('No contest ID found. Set in contest.yaml or pass --contest-id <cid>.')
 
-    bar = ProgressBar('Downloading metadata', count=4, max_len=len('submissions'))
+    for d in ['submissions', 'scoreboard']:
+        Path(d).mkdir(exist_ok=True)
+
+    bar = ProgressBar('Downloading metadata', count=6, max_len=len('ZIPs and HTMLs'))
+
+    bar.start('contest')
+    numeric_contest_id = call_api_get_json(f'/contests/{contest_id}')['cid']
+    bar.done()
+
     bar.start('submissions')
     submissions = {s['id']: s for s in call_api_get_json(f'/contests/{contest_id}/submissions')}
     bar.done()
@@ -29,9 +38,27 @@ def download_submissions():
         len(s['team_id']) if s['team_id'].isdigit() else 0 for s in submissions.values()
     )
 
-    bar.start('teams')
-    with open(f'submissions/teams.json', 'w') as f:
-        f.write(json.dumps(call_api_get_json(f'/contests/{contest_id}/teams'), indent=2))
+    bar.start('scoreboard')
+    for endpoint in ['teams', 'organizations', 'problems', 'scoreboard', 'clarifications']:
+        with open(f'scoreboard/{endpoint}.json', 'w') as f:
+            f.write(json.dumps(call_api_get_json(f'/contests/{contest_id}/{endpoint}'), indent=2))
+    bar.done()
+
+    bar.start('ZIPs and HTMLs')
+    with open('scoreboard/.gitignore', 'wb') as fb:
+        fb.write(b'!*.zip\n')
+    for scoreboard_type in ['public', 'unfrozen']:
+        with open(f'scoreboard/{scoreboard_type}-scoreboard.zip', 'wb') as fb:
+            # TODO downloading this .zip only provides a login page
+            fb.write(
+                call_api(
+                    'GET',
+                    f'/../../jury/contests/{numeric_contest_id}/{scoreboard_type}-scoreboard.zip',
+                ).content
+            )
+    with open(f'scoreboard/clarifications.html', 'wb') as fb:
+        # TODO downloading this .zip only provides a login page
+        fb.write(call_api('GET', f'/../../jury/import-export/export/clarifications.html').content)
     bar.done()
 
     # Fetch account info so we can filter for team submissions
