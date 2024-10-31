@@ -6,7 +6,7 @@ from pathlib import Path
 
 import config
 import parallel
-from contest import call_api_get_json, get_contest_id
+from contest import call_api, call_api_get_json, get_contest_id
 from util import ProgressBar, fatal
 from verdicts import Verdict, from_string
 
@@ -23,7 +23,12 @@ def download_submissions():
     for d in ["submissions", "scoreboard"]:
         Path(d).mkdir(exist_ok=True)
 
-    bar = ProgressBar("Downloading metadata", count=3, max_len=len("submissions"))
+    bar = ProgressBar("Downloading metadata", count=5, max_len=len("ZIPs and HTMLs"))
+
+    bar.start("contest")
+    numeric_contest_id = call_api_get_json(f"/contests/{contest_id}")["cid"]
+    bar.done()
+
     bar.start("submissions")
     submissions = {s["id"]: s for s in call_api_get_json(f"/contests/{contest_id}/submissions")}
     bar.done()
@@ -37,6 +42,23 @@ def download_submissions():
     for endpoint in ["teams", "organizations", "problems", "scoreboard", "clarifications"]:
         with open(f"scoreboard/{endpoint}.json", "w") as f:
             f.write(json.dumps(call_api_get_json(f"/contests/{contest_id}/{endpoint}"), indent=2))
+    bar.done()
+
+    bar.start("ZIPs and HTMLs")
+    with open("scoreboard/.gitignore", "wb") as fb:
+        fb.write(b"!*.zip\n")
+    for scoreboard_type in ["public", "unfrozen"]:
+        with open(f"scoreboard/{scoreboard_type}-scoreboard.zip", "wb") as fb:
+            # TODO downloading this .zip only provides a login page
+            fb.write(
+                call_api(
+                    "GET",
+                    f"/../../jury/contests/{numeric_contest_id}/{scoreboard_type}-scoreboard.zip",
+                ).content
+            )
+    with open("scoreboard/clarifications.html", "wb") as fb:
+        # TODO downloading this .zip only provides a login page
+        fb.write(call_api("GET", "/../../jury/import-export/export/clarifications.html").content)
     bar.done()
 
     bar.start("judgements")
