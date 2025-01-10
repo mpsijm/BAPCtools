@@ -16,7 +16,7 @@ import time
 from enum import Enum
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, NoReturn, Optional
+from typing import Any, Literal, NoReturn, Optional, overload
 
 import yaml as yamllib
 from colorama import Fore, Style
@@ -58,10 +58,6 @@ def is_aquabsd() -> bool:
 
 def is_bsd() -> bool:
     return is_mac() or is_freebsd() or is_aquabsd()
-
-
-if not is_windows():
-    import resource
 
 
 def exit1(force=False) -> NoReturn:
@@ -121,7 +117,7 @@ class MessageType(Enum):
         }[self]
 
 
-def message(msg, task=None, item=None, *, color_type=""):
+def message(msg, task=None, item=None, *, color_type: str | MessageType = ""):
     if task is not None:
         print(f"{Fore.CYAN}{task}{Style.RESET_ALL}: ", end="", file=sys.stderr)
     if item is not None:
@@ -153,6 +149,10 @@ class PrintBar:
         message(msg, self.task, item, color_type=MessageType.FATAL)
 
 
+def update_columns(*_):
+    ProgressBar.columns = shutil.get_terminal_size().columns
+
+
 # A class that draws a progressbar.
 # Construct with a constant prefix, the max length of the items to process, and
 # the number of items to process.
@@ -170,11 +170,6 @@ class ProgressBar:
     columns = shutil.get_terminal_size().columns
 
     if not is_windows():
-
-        def update_columns(_: Any, __: Any):
-            cols, rows = shutil.get_terminal_size()
-            ProgressBar.columns = cols
-
         signal.signal(signal.SIGWINCH, update_columns)
 
     @staticmethod
@@ -188,30 +183,47 @@ class ProgressBar:
     def _is_locked(self):
         return ProgressBar.lock_depth > 0
 
-    # When needs_leading_newline is True, this will print an additional empty line before the first log message.
+    @overload
     def __init__(
         self,
-        prefix,
+        prefix: str,
+        *,
+        max_len: int,
+        count: Optional[int] = None,
+        items=None,
+        needs_leading_newline=False,
+    ): ...
+    @overload
+    def __init__(
+        self, prefix: str, *, max_len=None, count=None, items: list, needs_leading_newline=False
+    ): ...
+    def __init__(
+        self,
+        prefix: str,
+        *,
         max_len=None,
         count=None,
-        *,
         items=None,
+        # When needs_leading_newline is True, this will print an additional empty line before the first log message.
         needs_leading_newline=False,
     ):
         assert ProgressBar.current_bar is None, ProgressBar.current_bar.prefix  # type: ignore[has-type]
         ProgressBar.current_bar = self
 
-        assert not (items and (max_len or count))
-        assert items is not None or max_len
         if items is not None:
-            count = len(items)
-            if count == 0:
+            assert count is None and max_len is None, (
+                "Parameters 'count' and 'max_len' are not allowed when passing 'items'"
+            )
+            self.count = len(items)
+            if self.count == 0:
                 max_len = 0
             else:
                 max_len = max(ProgressBar.item_len(x) for x in items)
+        else:
+            assert max_len is not None, "Either 'items' or 'max_len' is required (not both)"
+            self.count = count  # The number of items we're processing
         self.prefix = prefix  # The prefix to always print
-        self.item_width = max_len + 1  # The max length of the items we're processing
-        self.count = count  # The number of items we're processing
+        self.item_width: int = max_len + 1  # The max length of the items we're processing
         self.i = 0
         emptyline = " " * self.total_width() + "\r"
         self.carriage_return = emptyline if is_windows() else "\033[K"
@@ -224,8 +236,8 @@ class ProgressBar:
         # - IO lock
         # - the counter
         # - items in progress
-        self.parent = None
-        self.in_progress = set()
+        self.parent: Optional["ProgressBar"] = None
+        self.in_progress = set[Any]()  # TODO #102: items should probably have a generic type
         self.item = None
 
         self.needs_leading_newline = needs_leading_newline
@@ -248,15 +260,19 @@ class ProgressBar:
         return cols
 
     def bar_width(self):
-        if self.item_width is None:
-            return None
         return self.total_width() - len(self.prefix) - 2 - self.item_width
 
-    def update(self, count, max_len):
+    def update(self, count: int, max_len: int):
+        assert self.count is not None, (
+            "ProgressBar.update requires 'count' parameter in constructor"
+        )
         self.count += count
         self.item_width = max(self.item_width, max_len + 1) if self.item_width else max_len + 1
 
     def add_item(self, item):
+        assert self.count is not None, (
+            "ProgressBar.add_item requires 'count' parameter in constructor"
+        )
         self.count += 1
         self.item_width = max(self.item_width, ProgressBar.item_len(item))
 
@@ -554,7 +570,7 @@ def print_name(path: Path, keep_type=False) -> str:
     return str(Path(*path.parts[1 if keep_type else 2 :]))
 
 
-def parse_yaml(data, path=None, plain=False):
+def parse_yaml(data, path=None, plain=False) -> Any:
     # First try parsing with ruamel.yaml.
     # If not found, use the normal yaml lib instead.
     if has_ryaml and not plain:
@@ -807,10 +823,9 @@ def copytree_and_substitute(
         os.makedirs(dst, exist_ok=exist_ok)
         errors = []
         for name in names:
+            srcFile = src / name
+            dstFile = dst / name
             try:
-                srcFile = src / name
-                dstFile = dst / name
-
                 copytree_and_substitute(
                     srcFile,
                     dstFile,
@@ -906,8 +921,13 @@ class ExecResult:
         self.pass_id = pass_id
 
 
-def limit_setter(command, timeout, memory_limit, group=None, cores=False):
+def limit_setter(
+    command, timeout, memory_limit, group=None, cores: Literal[False] | list[int] = False
+):
     def setlimits():
+        assert not is_windows()
+        import resource
+
         if timeout:
             resource.setrlimit(resource.RLIMIT_CPU, (timeout + 1, timeout + 1))
 
@@ -1047,7 +1067,7 @@ def exec_command(
 
     process: Optional[ResourcePopen] = None
 
-    def interrupt_handler(sig, frame):
+    def interrupt_handler(*_):
         nonlocal process
         if process is not None:
             process.kill()
@@ -1055,6 +1075,8 @@ def exec_command(
 
     if threading.current_thread() is threading.main_thread():
         old_handler = signal.signal(signal.SIGINT, interrupt_handler)
+    else:
+        old_handler = None
 
     timeout_expired = False
     tstart = time.monotonic()
@@ -1085,7 +1107,7 @@ def exec_command(
 
     tend = time.monotonic()
 
-    if threading.current_thread() is threading.main_thread():
+    if old_handler:
         signal.signal(signal.SIGINT, old_handler)
 
     # -2 corresponds to SIGINT, i.e. keyboard interrupt / CTRL-C.
@@ -1179,7 +1201,7 @@ def hash_file(file, buffer_size=65536):
     return sha.hexdigest()
 
 
-def hash_file_or_dir(file_or_dir, buffer_size=65536):
+def hash_file_or_dir(file_or_dir):
     if file_or_dir.is_dir():
         return combine_hashes(
             [hash_string(file_or_dir.name)] + [hash_file_or_dir(f) for f in file_or_dir.iterdir()]

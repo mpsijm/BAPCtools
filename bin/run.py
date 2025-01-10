@@ -603,7 +603,7 @@ class Submission(program.Program):
             if output_validators is False:
                 return
 
-        bar = ProgressBar("Running " + str(self.name), max_len=1, count=1)
+        bar = ProgressBar("Running " + str(self.name), count=1, max_len=1)
         bar.start()
         # print(ProgressBar.action('Running', str(self.name)), file=sys.stderr)
 

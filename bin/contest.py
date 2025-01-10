@@ -1,12 +1,14 @@
 from pathlib import Path
+from typing import Any, cast, Optional
 
-from util import *
+import config
+from util import error, fatal, log, read_yaml, read_yaml_settings, verbose
 
 # Read the contest.yaml, if available
 _contest_yaml = None
 
 
-def contest_yaml():
+def contest_yaml() -> dict:
     global _contest_yaml
     if _contest_yaml is not None:
         return _contest_yaml
@@ -23,7 +25,7 @@ def contest_yaml():
 _problems_yaml = None
 
 
-def problems_yaml():
+def problems_yaml() -> Optional[list[dict]]:
     global _problems_yaml
     if _problems_yaml:
         return _problems_yaml
@@ -35,7 +37,7 @@ def problems_yaml():
         _problems_yaml = False
         return None
     _problems_yaml = read_yaml(problemsyaml_path)
-    return _problems_yaml
+    return cast(Any, _problems_yaml)
 
 
 def get_api():
@@ -109,4 +111,4 @@ def call_api_get_json(url):
     try:
         return r.json()
     except Exception as e:
-        print(f"\nError in decoding JSON:\n{e}\n{r.text()}")
+        print(f"\nError in decoding JSON:\n{e}\n{r.text}")

@@ -47,8 +47,6 @@ import contest
 from contest import *
 from util import *
 
-if not is_windows():
-    import argcomplete  # For automatic shell completions
 
 # Initialize colorama for printing coloured output. On Windows, this captures
 # stdout and replaces ANSI colour codes by calls to change the terminal colour.
@@ -196,16 +194,16 @@ def get_problems():
 
             # Read set of problems
             contest_problems = call_api_get_json(f"/contests/{cid}/problems?public=true")
-            assert isinstance(problems, list)
-            for path in contest_problems:
-                solves[path["id"]] = 0
+            assert isinstance(contest_problems, list)
+            for p in contest_problems:
+                solves[p["id"]] = 0
 
             scoreboard = call_api_get_json(f"/contests/{cid}/scoreboard?public=true")
-
+            assert isinstance(scoreboard, dict)
             for team in scoreboard["rows"]:
-                for path in team["problems"]:
-                    if path["solved"]:
-                        solves[path["problem_id"]] += 1
+                for p in team["problems"]:
+                    if p["solved"]:
+                        solves[p["problem_id"]] += 1
 
             # Convert away from defaultdict, so any non matching keys below raise an error.
             solves = dict(solves)
@@ -879,6 +877,8 @@ Run this from one of:
     join_slack_channel_parser.add_argument("username", help="Slack username")
 
     if not is_windows():
+        import argcomplete
+
         argcomplete.autocomplete(parser)
 
     return parser

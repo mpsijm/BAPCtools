@@ -4,11 +4,11 @@ import yaml
 import re
 import zipfile
 import config
-import util
 from pathlib import Path
 from typing import Optional
 
 from contest import *
+from util import error, glob, has_ryaml, inc_label, parse_yaml, warn, write_yaml
 
 
 # Replace \problemname{...} by the value of `name:` in problems.yaml in all .tex files.
@@ -27,7 +27,7 @@ def fix_problem_name_cmd(problem):
                     t = t.replace(match[0], r"\problemname{" + problem.settings.name[lang] + "}")
                     f.write_text(t)
                 else:
-                    util.error(f"{f}: no name set for language {lang}.")
+                    error(f"{f}: no name set for language {lang}.")
 
     def revert():
         for f, t in reverts:
@@ -77,7 +77,7 @@ def build_samples_zip(problems, output, statement_language):
         if (problem.interactive or problem.multipass) and not attachments_dir.is_dir():
             interactive = "interactive " if problem.interactive else ""
             multipass = "multi-pass " if problem.multipass else ""
-            util.error(
+            error(
                 f"{interactive}{multipass}problem {problem.name} does not have an attachments/ directory."
             )
             continue
@@ -88,12 +88,12 @@ def build_samples_zip(problems, output, statement_language):
         if attachments_dir.is_dir():
             for f in attachments_dir.iterdir():
                 if f.is_dir():
-                    util.error(f"{f} directory attachments are not yet supported.")
+                    error(f"{f} directory attachments are not yet supported.")
                 elif f.is_file() and f.exists():
                     zf.write(f, outputdir / f.name)
                     empty = False
                 else:
-                    util.error(f"Cannot include broken file {f}.")
+                    error(f"Cannot include broken file {f}.")
 
         # Add samples for non-interactive and non-multi-pass problems.
         if not problem.interactive and not problem.multipass:
@@ -107,7 +107,7 @@ def build_samples_zip(problems, output, statement_language):
                     empty = False
 
         if empty:
-            util.error(f"No attachments or samples found for problem {problem.name}.")
+            error(f"No attachments or samples found for problem {problem.name}.")
 
     zf.close()
     print("Wrote zip to samples.zip", file=sys.stderr)
@@ -161,12 +161,12 @@ def build_problem_zip(problem, output):
     for pattern in deprecated:
         files.append((pattern, False))
         # Only include hidden files if the pattern starts with a '.'.
-        paths = list(util.glob(problem.path, pattern, include_hidden=pattern[0] == "."))
+        paths = list(glob(problem.path, pattern, include_hidden=pattern[0] == "."))
         if len(paths) > 0:
             addition = ""
             if len(paths) > 1:
                 addition = f" and {len(paths) - 1} more"
-            util.warn(f'Found deprecated file "{paths[0]}"{addition}.')
+            warn(f'Found deprecated file "{paths[0]}"{addition}.')
 
     # Build list of files to store in ZIP file.
     copyfiles = set()
@@ -174,9 +174,9 @@ def build_problem_zip(problem, output):
     # Include all files beside testcases
     for pattern, required in files:
         # Only include hidden files if the pattern starts with a '.'.
-        paths = list(util.glob(problem.path, pattern, include_hidden=pattern[0] == "."))
+        paths = list(glob(problem.path, pattern, include_hidden=pattern[0] == "."))
         if required and len(paths) == 0:
-            util.error(f"No matches for required path {pattern}.")
+            error(f"No matches for required path {pattern}.")
         for f in paths:
             # NOTE: Directories are skipped because ZIP only supports files.
             if f.is_file():
@@ -189,14 +189,14 @@ def build_problem_zip(problem, output):
 
     # Include all testcases (specified by a .in file) and copy all related files
     for pattern, required in testcases:
-        paths = list(util.glob(problem.path, pattern))
+        paths = list(glob(problem.path, pattern))
         if required and len(paths) == 0:
-            util.error(f"No matches for required path {pattern}.")
+            error(f"No matches for required path {pattern}.")
         for f in paths:
             # NOTE: Directories are skipped because ZIP only supports files.
             if f.is_file():
                 if not f.with_suffix(".ans").is_file():
-                    util.warn(f"No answer file found for {f}, skipping.")
+                    warn(f"No answer file found for {f}, skipping.")
                 else:
                     for ext in config.KNOWN_DATA_EXTENSIONS:
                         f2 = f.with_suffix(ext)

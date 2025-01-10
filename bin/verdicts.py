@@ -280,18 +280,16 @@ class Verdicts:
             [AC, None, RTE] is not (the first error cannot be determined).
         """
         with self:
-            child_verdicts = list(self.verdict[c] for c in self.children[testgroup])
+            child_verdicts: list[Verdict | Literal[False] | None] = list(
+                self.verdict[c] for c in self.children[testgroup]
+            )
             if all(v == Verdict.ACCEPTED for v in child_verdicts):
                 return Verdict.ACCEPTED
             else:
-                first_error = next(v for v in child_verdicts if v != Verdict.ACCEPTED)
-                if first_error in [None, False]:
-                    raise ValueError(
-                        f"Verdict aggregation at {testgroup} with unknown child verdicts"
-                    )
-                assert first_error is not None
-                assert first_error is not False
-                return first_error
+                first_error = next(filter(lambda v: v != Verdict.ACCEPTED, child_verdicts))
+                if first_error is not None and first_error is not False:
+                    return first_error
+                raise ValueError(f"Verdict aggregation at {testgroup} with unknown child verdicts")
 
     def _set_verdict_for_node(self, testnode: str, verdict: Verdict, timeout: bool):
         # This assumes self.lock is already held.
@@ -627,28 +625,28 @@ class VerdictTable:
     def ProgressBar(
         self,
         prefix,
+        *,
         max_len=None,
         count=None,
-        *,
         items=None,
         needs_leading_newline=False,
     ) -> "TableProgressBar":
         return TableProgressBar(
             self,
             prefix,
-            max_len,
-            count,
+            max_len=max_len,
+            count=count,
             items=items,
             needs_leading_newline=needs_leading_newline,
         )
 
 
 class TableProgressBar(ProgressBar):
-    def __init__(self, table, prefix, max_len, count, *, items, needs_leading_newline):
+    def __init__(self, table, prefix, *, max_len, count, items, needs_leading_newline):
         super().__init__(
             prefix,
-            max_len,
-            count,
+            max_len=max_len,
+            count=count,
             items=items,
             needs_leading_newline=needs_leading_newline,
         )
