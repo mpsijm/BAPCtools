@@ -6,9 +6,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast, Optional
 
-import config
-import generate
-from util import (
+from bapctools import config
+from bapctools import generate
+from bapctools.util import (
     fatal,
     has_ryaml,
     is_problem_directory,
@@ -21,7 +21,7 @@ from util import (
     warn,
     write_yaml,
 )
-from validate import AnswerValidator, InputValidator, OutputValidator
+from bapctools.validate import AnswerValidator, InputValidator, OutputValidator
 
 if has_ryaml:
     from ruamel.yaml.comments import CommentedMap, CommentedSeq

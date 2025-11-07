@@ -9,8 +9,8 @@ from colorama import Fore
 from pathlib import Path
 from typing import Any, Final, Optional, TYPE_CHECKING, TypeVar
 
-import config
-from util import (
+from bapctools import config
+from bapctools.util import (
     combine_hashes,
     copy_and_substitute,
     ensure_symlink,
@@ -30,7 +30,7 @@ from util import (
 )
 
 if TYPE_CHECKING:  # Prevent circular import: https://stackoverflow.com/a/39757388
-    from problem import Problem
+    from bapctools.problem import Problem
 
 
 class Language:

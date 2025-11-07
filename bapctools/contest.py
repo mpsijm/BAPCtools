@@ -2,8 +2,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast, Literal, Optional, TYPE_CHECKING
 
-import config
-from util import eprint, error, fatal, log, read_yaml, read_yaml_settings, verbose
+from bapctools import config
+from bapctools.util import eprint, error, fatal, log, read_yaml, read_yaml_settings, verbose
 
 if TYPE_CHECKING:
     import requests
