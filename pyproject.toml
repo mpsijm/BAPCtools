@@ -7,7 +7,6 @@ dependencies = [
     "argcomplete; platform_system != 'Windows'",
     "python-dateutil",
     "ruamel.yaml",
-    "matplotlib",
     "requests",
     "questionary",
 ]
@@ -16,6 +15,9 @@ requires-python = ">=3.10"
 [project.optional-dependencies]
 dev = [
     "pytest",
+]
+solve_stats = [
+    "matplotlib",
 ]
 
 [project.scripts]
