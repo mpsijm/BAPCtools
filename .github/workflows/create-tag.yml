@@ -15,6 +15,9 @@ jobs:
       run: |
         git config --global --add safe.directory /github/workspace
 
+        # Make sure that `git describe` knows the history, but no data about trees/blobs is needed.
+        git fetch --prune --unshallow --filter=tree:0
+
         prev_tag="$(git describe --abbrev=0 --tags)"
         if ! [[ $prev_tag =~ ^([0-9]{4})\.([0-9]{1,2})\.([0-9]+)$ ]]; then
           echo "Invalid prev_tag format. Expected YYYY.M.P or YYYY.MM.P"
