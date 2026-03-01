@@ -1,5 +1,5 @@
 [project]
-name = "bapctools"
+name = "bapctools-mpsijm"
 dependencies = [
     "argcomplete~=3.6.3; platform_system != 'Windows'",
     "colorama~=0.4.6",
@@ -36,6 +36,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 source = "versioningit"
+
+# Hatch looks for a package directory named `bapctools_mpsijm`, but obviously, that does not exist.
+[tool.hatch.build.targets.wheel]
+packages = ["bapctools"]
 
 [tool.ruff]
 line-length = 100
