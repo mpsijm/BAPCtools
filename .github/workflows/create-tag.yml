@@ -14,6 +14,8 @@ jobs:
     - name: Bump version number
       run: |
         git config --global --add safe.directory /github/workspace
+        git config user.name "${GITHUB_ACTOR}"
+        git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 
         # Make sure that `git describe` knows the history, but no data about trees/blobs is needed.
         git fetch --prune --unshallow --filter=tree:0
